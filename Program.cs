@@ -136,122 +136,74 @@ namespace FTP_Attestation_CopyFiles
                 }
             }
 
-
-
-            //ftp.CreateDirectory("testDir");
-            //ftp.UploadFile("C:/VisualStudioProject/TestFTP/NET/TestFTP/TestFTP/bin/Debug/test.txt", "/testDir/test.txt", true);
-            //ftp.DownloadFile("test.txt", "testDir/test.txt");
-
-
-            /*string[] fileDetails = ftp.GetFiles();
-            foreach (string a in fileDetails)
-            {
-                Console.WriteLine(a);
-                if (a == "./testDir")
-                {
-                    Console.WriteLine("папка testDir");
-                }
-            }*/
-            FTPFile[] filesFTP_ = ftp.GetFileInfos();
-            foreach (FTPFile d in filesFTP_)
-            {
-                Console.WriteLine();
-                Console.WriteLine(d + "информация о файле");
-                Console.WriteLine();
-                Console.WriteLine(d.Dir + " - Dir");
-                Console.WriteLine(d.Group + " - Group");
-                Console.WriteLine(d.LastModified + " - LastModified");
-                Console.WriteLine(d.Link + " - Link");
-                Console.WriteLine(d.LinkCount + " - LinkCount");
-                Console.WriteLine(d.LinkedName + " - LinkedName");
-                Console.WriteLine(d.Name + " - Name");
-                Console.WriteLine(d.Owner + " - Owner");
-                Console.WriteLine(d.Permissions + " - Permissions");
-                Console.WriteLine(d.Raw + " - Raw");
-                Console.WriteLine(d.Size + " - Size");
-                Console.WriteLine(d.Type + " - Type");
-                Console.WriteLine();
-                /*if (d.Name == "testDir")
-                {
-                    Console.WriteLine("папка testDir");
-                    ftp.ChangeWorkingDirectory(d.Name); // сменить рабочую директорию
-                    //foreach()
-                    FTPFile[] files__FTP = ftp.GetFileInfos();
-                    foreach (FTPFile g in files__FTP)
-                    {
-                        Console.WriteLine(g);
-                    }
-
-                }*/
-            }
+            // Получение списка директорий на сервере ////////////////////////////////////////////////////////////////////////////////////////////////
+            FTPFile[] GUID_directory = ftp.GetFileInfos();  
+            
             // сортировка директории по дате создания (первая самая новая)
             FTPFile temp;
-            for (int i = 0; i < filesFTP_.Length - 1; i++)
+            for (int i = 0; i < GUID_directory.Length - 1; i++)
             {
-                for (int j = i + 1; j < filesFTP_.Length; j++)
+                for (int j = i + 1; j < GUID_directory.Length; j++)
                 {
-                    if (filesFTP_[i].LastModified < filesFTP_[j].LastModified)
+                    if (GUID_directory[i].LastModified < GUID_directory[j].LastModified)
                     {
-                        temp = filesFTP_[i];
-                        filesFTP_[i] = filesFTP_[j];
-                        filesFTP_[j] = temp;
+                        temp = GUID_directory[i];
+                        GUID_directory[i] = GUID_directory[j];
+                        GUID_directory[j] = temp;
                     }
                 }
             }
 
             Console.WriteLine("После сортировки");
-            foreach (FTPFile a in filesFTP_)
+            foreach (FTPFile a in GUID_directory)
             {
                 Console.WriteLine(a.Name);
             }
 
-
-            /*if (filesFTP_.Length > 1)
+            // Удаление файлов и директорий
+            if (GUID_directory.Length > 1)
             {
-                for (int i = 1; i < filesFTP_.Length; i++)
+                for (int i = 1; i < GUID_directory.Length; i++)
                 {
-                    Console.WriteLine(filesFTP_[i].Name);
-                    ftp.ChangeWorkingDirectory(filesFTP_[i].Name); // сменить рабочую директорию
-                    FTPFile[] files__FTP = ftp.GetFileInfos();
-                    foreach (FTPFile g in files__FTP)
+                    // создаем папку на вычеслителе с именем партии
+                    DirectoryInfo dirInfo = new DirectoryInfo(dirName + "/" + GUID_directory[i].Name);   
+                    if (!dirInfo.Exists)
                     {
-                        ftp.DeleteFile(g.Name);
+                        dirInfo.Create();
+                    }
+                    //dirInfo.CreateSubdirectory(subpath);
+
+
+                    ftp.ChangeWorkingDirectory(GUID_directory[i].Name);     // сменить рабочую директорию, войти в папку партии
+                    FTPFile[] Into_GUID = ftp.GetFileInfos();               // файлы в папке партии
+                    foreach (FTPFile g in Into_GUID)
+                    {
+                        if (g.Dir)  // true если это директория
+                        {
+                            
+                            dirInfo.CreateSubdirectory(g.Name);             // создаем папку на вычеслителе с номером вагона
+                            ftp.ChangeWorkingDirectory(g.Name);             // сменить рабочую директорию, войти в папку номера вагона
+                            FTPFile[] files = ftp.GetFileInfos();           // файлы в папке вагона
+                            foreach(FTPFile a in files)
+                            {
+                                ftp.DownloadFile(a.Name, dirName + "/" + GUID_directory[i].Name + "/" + );
+                            }
+                        }
+                        else
+                        {
+
+                        }
+                        ftp.DeleteFile(g.Name);                        // удаление файлов
                     }
                     Console.WriteLine("Файлы удалены из директории");
-                    ftp.ChangeWorkingDirectoryUp();
-                    ftp.DeleteDirectory(filesFTP_[i].Name);
+                    ftp.ChangeWorkingDirectoryUp();                    // вернуться из папки
+                    ftp.DeleteDirectory(GUID_directory[i].Name);            // удалить папку
                     Console.WriteLine("Старые директории удалены");
 
                 }
-            }*/
-
-            // Список локальных директорий
-            /*string[] dirs = Directory.GetDirectories(@"D:\\APP", "*", SearchOption.TopDirectoryOnly);
-            for (int i = 0; i < dirs.Length; i++)
-            {
-                dirs[i] = new FileInfo(dirs[i]).Name; // Выделяем короткое название из пути
             }
 
-            // Список удаленных директорий
-            FTPFile[] file__Details = ftp.GetFileInfos("");
-            foreach (FTPFile file in file__Details)
-            {
-                if (file.Dir && Array.Exists(dirs, x => x == file.Name))
-                {
-                    Console.WriteLine(file.Name + " " + file.Dir);
-                }
-
-                //Console.WriteLine(file.Name + " " + file.Dir);
-            }*/
-
-
-
-
-
-
-
-
-
+           
             ftp.Close();
             Console.Read();
 
