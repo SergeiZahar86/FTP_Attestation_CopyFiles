@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml;
 
 namespace FTP_Attestation_CopyFiles
 {
@@ -15,7 +16,18 @@ namespace FTP_Attestation_CopyFiles
         public static List<string> Local_Short_listFiles;
         public static string[] main_Long_files;
         public static string[] main_Short_files;
+        public static string dir_Name;
+        public static string serverAddress;
+        public static string userName;
+        public static string password;
 
+        public static void log(string message) // запись логов в текстовый файл
+        {
+            using (StreamWriter sw = File.AppendText("FTP_Attestation_CopyFiles.log.txt"))
+            {
+                sw.WriteLine(message);
+            }
+        }
 
 
         static void Main(string[] args)
@@ -23,6 +35,48 @@ namespace FTP_Attestation_CopyFiles
             Local_long_listFiles = new List<string>();
             Local_Short_listFiles = new List<string>();
 
+            // Чтение конфигурации из файла
+            try
+            {
+                XmlDocument xDoc = new XmlDocument();
+                xDoc.Load("Jobs_config.xml");
+                // получим корневой элемент
+                XmlElement xRoot = xDoc.DocumentElement;
+                // обход всех узлов в корневом элементе
+                foreach (XmlNode xnode in xRoot)
+                {
+                    var v = xnode.Name;
+                    if (xnode.Name == "ftp_att_copy")
+                    {
+                        foreach (XmlNode childnode in xnode.ChildNodes)
+                        {
+                            foreach (XmlNode atreb in childnode.Attributes)
+                            {
+                                switch (atreb.Name)
+                                {
+                                    case "dirName":
+                                        dir_Name = atreb.Value;
+                                        break;
+                                    case "ServerAddress":
+                                        serverAddress = atreb.Value;
+                                        break;
+                                    case "UserName":
+                                        userName = atreb.Value;
+                                        break;
+                                    case "Password":
+                                        password = atreb.Value;
+                                        break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception a)
+            {
+                log(a.ToString());
+            }
+            // ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
             string dirName = ConfigurationManager.AppSettings["dirName"];
 
@@ -166,7 +220,7 @@ namespace FTP_Attestation_CopyFiles
                 for (int i = 1; i < GUID_directory.Length; i++)
                 {
                     // создаем папку на вычеслителе с именем партии
-                    DirectoryInfo dirInfo = new DirectoryInfo(dirName + "/" + GUID_directory[i].Name);   
+                    DirectoryInfo dirInfo = new DirectoryInfo(dir_Name + "/" + GUID_directory[i].Name);   
                     if (!dirInfo.Exists)
                     {
                         dirInfo.Create();
@@ -176,31 +230,33 @@ namespace FTP_Attestation_CopyFiles
 
                     ftp.ChangeWorkingDirectory(GUID_directory[i].Name);     // сменить рабочую директорию, войти в папку партии
                     FTPFile[] Into_GUID = ftp.GetFileInfos();               // файлы в папке партии
-                    foreach (FTPFile g in Into_GUID)
+                    for (int k = 0; k < Into_GUID.Length; k++)
                     {
-                        if (g.Dir)  // true если это директория
+                        if (Into_GUID[k].Dir)  // true если это директория
                         {
                             
-                            dirInfo.CreateSubdirectory(g.Name);             // создаем папку на вычеслителе с номером вагона
-                            ftp.ChangeWorkingDirectory(g.Name);             // сменить рабочую директорию, войти в папку номера вагона
-                            FTPFile[] files = ftp.GetFileInfos();           // файлы в папке вагона
+                            dirInfo.CreateSubdirectory(Into_GUID[k].Name);             // создаем папку на вычеслителе с номером вагона
+                            ftp.ChangeWorkingDirectory(Into_GUID[k].Name);             // сменить рабочую директорию, войти в папку номера вагона
+                            FTPFile[] files = ftp.GetFileInfos();                      // файлы в папке вагона
                             foreach(FTPFile a in files)
                             {
-                                ftp.DownloadFile(a.Name, dirName + "/" + GUID_directory[i].Name + "/" + );
+                                // копирование файла с сервера на кампъютер
+                                ftp.DownloadFile(a.Name, dir_Name + "/" + GUID_directory[i].Name + "/" + Into_GUID[k] + "/" + a.Name);
                             }
+                            ftp.ChangeWorkingDirectoryUp();                    // вернуться из папки
                         }
                         else
                         {
-
+                            ftp.DownloadFile(Into_GUID[k].Name, dir_Name + "/" + GUID_directory[i].Name + "/" + Into_GUID[k].Name);
                         }
-                        ftp.DeleteFile(g.Name);                        // удаление файлов
                     }
-                    Console.WriteLine("Файлы удалены из директории");
+                    //Console.WriteLine("Файлы удалены из директории");
                     ftp.ChangeWorkingDirectoryUp();                    // вернуться из папки
                     ftp.DeleteDirectory(GUID_directory[i].Name);            // удалить папку
                     Console.WriteLine("Старые директории удалены");
 
                 }
+                Console.WriteLine("Старые директории удалены");
             }
 
            
