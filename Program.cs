@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Data.Odbc;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -20,6 +21,9 @@ namespace FTP_Attestation_CopyFiles
         public static string password;
         public static FTPConnection ftp;
 
+        public static string connectionString;
+        public static string command;
+
         public static void log(string message) // запись логов в текстовый файл
         {
             using (StreamWriter sw = File.AppendText("FTP_Attestation_CopyFiles.log.txt"))
@@ -27,6 +31,68 @@ namespace FTP_Attestation_CopyFiles
                 sw.WriteLine(message);
             }
         }
+        public static void InsertRow(string connectionString, DateTime dateTime) // соединение с базой данных по ODBC
+        {
+            string query = "select part_id from incube.dbo.tb_part where end_time>'2020-11-24 12:00:00'";
+
+            using (OdbcConnection connection = new OdbcConnection(connectionString))
+            {
+                OdbcCommand command = new OdbcCommand(query, connection);
+                try
+                {
+                    connection.Open();
+                    List<string> part = new List<string>();
+                    // Запустите DataReader и получите доступ к данным.
+
+                    OdbcDataReader reader = command.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        part.Add(reader[0].ToString());
+                    }
+                    foreach(string pp in part)
+                    {
+
+                        Console.WriteLine(pp);
+                    }
+                    
+                    DateTime dateTime1 = DateTime.Now;
+                    // убираем букву Z из конца строки даты
+                    string dat = (dateTime1.ToUniversalTime().ToString("u")).Replace("Z", ""); 
+                    Console.WriteLine(dat);
+                    Console.Read();
+                    // Call Close when done reading.
+                    reader.Close();
+                }
+                catch (Exception ss)
+                {
+                    log(ss.ToString());
+                }
+            }
+        }
+        /*static private string[] InsertRow(string connectionString, string queryString, DateTime dateTime) // соединение с базой данных по ODBC
+        {
+            try
+            {
+                OdbcCommand command = new OdbcCommand(queryString);
+
+                using (OdbcConnection connection = new OdbcConnection(connectionString))
+                {
+                    command.Connection = connection;
+                    connection.Open();
+                    //command.ExecuteNonQuery();
+                    command.CommandType = System.Data.CommandType.Text;
+                    command.CommandText = "";
+                    command.Parameters.Add("", OdbcType.DateTime).Value = dateTime;
+                    string[] guids = command.ExecuteScalar().ToString();
+                    Console.WriteLine(guids);
+                    return guids;
+                }
+            }
+            catch (Exception a)
+            {
+                log(a.ToString());
+            }
+        }*/
         static void Main(string[] args)
         {
             Local_long_listFiles = new List<string>();
@@ -67,7 +133,34 @@ namespace FTP_Attestation_CopyFiles
                             }
                         }
                     }
+                    else if (xnode.Name == "connection_DB")
+                    {
+                        foreach (XmlNode childnode in xnode.ChildNodes)
+                        {
+                            foreach (XmlNode atreb in childnode.Attributes)
+                            {
+                                if (atreb.Name == "connectionString")
+                                {
+                                    connectionString = atreb.Value;
+                                }
+                            }
+                        }
+                    }
+                    /*else if (xnode.Name == "last_parties")
+                    {
+                        foreach (XmlNode childnode in xnode.ChildNodes)
+                        {
+                            foreach (XmlNode atreb in childnode.Attributes)
+                            {
+                                if (atreb.Name == "value")
+                                {
+                                    command = atreb.Value;
+                                }
+                            }
+                        }
+                    }*/
                 }
+                // соединение с сервером по FTP 
                 ftp = new FTPConnection();
                 ftp.ConnectMode = FTPConnectMode.ACTIVE;
                 ftp.ServerAddress = serverAddress;
@@ -80,8 +173,17 @@ namespace FTP_Attestation_CopyFiles
                 log(a.ToString());
             }
 
+            try
+            {
+                InsertRow(connectionString, new DateTime());
+            }
+            catch (Exception s)
+            {
+                log(s.ToString());
+            }
+
             // Получение списка директорий на сервере ////////////////////////////////////////////////////////////////////////////////////////////////
-            FTPFile[] GUID_directory = ftp.GetFileInfos();  
+            /*FTPFile[] GUID_directory = ftp.GetFileInfos();  
             
             // сортировка директории по дате создания (первая самая новая)
             FTPFile temp;
@@ -89,6 +191,7 @@ namespace FTP_Attestation_CopyFiles
             {
                 for (int j = i + 1; j < GUID_directory.Length; j++)
                 {
+                    Console.WriteLine(GUID_directory[j].LastModified);
                     if (GUID_directory[i].LastModified < GUID_directory[j].LastModified)
                     {
                         temp = GUID_directory[i];
@@ -144,7 +247,7 @@ namespace FTP_Attestation_CopyFiles
                 Console.WriteLine("Старые директории удалены");
             }
             ftp.Close();
-            Console.Read();
+            Console.Read();*/
         }
     }
 }
