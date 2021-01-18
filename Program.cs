@@ -36,8 +36,9 @@ namespace FTP_Attestation_CopyFiles
         }
         public static void InsertRow(string connectionString, DateTime dateTime) // соединение с базой данных по ODBC
         {
-            string query = $"select part_id from incube.dbo.tb_part where end_time>'{dateTime}'";
-
+            string dat = (dateTime.ToUniversalTime().ToString("u")).Replace("Z", "");
+            //string query = $"select part_id from incube.dbo.tb_part where end_time>'{dat}'";                   // реальный код 
+            string query = $"select part_id from incube.dbo.tb_part where end_time>'2020-10-15 12:00:00.000'";   // тестовый код
             using (OdbcConnection connection = new OdbcConnection(connectionString))
             {
                 OdbcCommand command = new OdbcCommand(query, connection);
@@ -47,20 +48,19 @@ namespace FTP_Attestation_CopyFiles
                     Console.WriteLine("Соединение с базой данных установлено");
                     part = new List<string>();
                     // Запустите DataReader и получите доступ к данным.
-
                     OdbcDataReader reader = command.ExecuteReader();
                     while (reader.Read())
                     {
-                        //part[i] = reader[i].ToString();
                         part.Add(reader[0].ToString());
+                    }
+                    if(part.Count > 0)
+                    {
                         Console.WriteLine("Получили список из базы данных");
                     }
-                    /*foreach(string pp in part)
+                    else
                     {
-
-                        Console.WriteLine(pp);
-                    }*/
-                    
+                        Console.WriteLine("Список партий из базы данных пустой");
+                    }
                     //DateTime dateTime1 = DateTime.Now;
                     // убираем букву Z из конца строки даты
                     //string dat = (dateTime1.ToUniversalTime().ToString("u")).Replace("Z", ""); 
@@ -129,19 +129,6 @@ namespace FTP_Attestation_CopyFiles
                             }
                         }
                     }
-                    /*else if (xnode.Name == "last_parties")
-                    {
-                        foreach (XmlNode childnode in xnode.ChildNodes)
-                        {
-                            foreach (XmlNode atreb in childnode.Attributes)
-                            {
-                                if (atreb.Name == "value")
-                                {
-                                    command = atreb.Value;
-                                }
-                            }
-                        }
-                    }*/
                 }
                 // соединение с сервером по FTP 
                 ftp = new FTPConnection();
@@ -156,7 +143,6 @@ namespace FTP_Attestation_CopyFiles
             {
                 log(a.ToString()+" Чтение конфига");
             }
-
 
             // Получение списка директорий на сервере ////////////////////////////////////////////////////////////////////////////////////////////////
             FTPFile[] GUID_directory = ftp.GetFileInfos();
@@ -225,19 +211,20 @@ namespace FTP_Attestation_CopyFiles
                                             FTPFile[] files = ftp.GetFileInfos();                      // файлы в папке вагона
                                             if (files.Length > 0)
                                             {
+                                                int lngth = files.Length;
                                                 foreach (FTPFile a in files)
                                                 {
                                                     try
                                                     {
                                                         // копирование файла с сервера на компьютер
                                                         ftp.DownloadFile(dir_Name + "/" + GUID_directory[i].Name + "/" + Into_GUID[k].Name + "/" + a.Name, a.Name);
-                                                        Console.WriteLine($"Файл с фото {a.Name} скопирован");
+                                                        //Console.WriteLine($"Файл с фото {a.Name} скопирован");
                                                         // сравниваем размер скаченного файла на диске и сервере
                                                         FileInfo info = new FileInfo(dir_Name + "/" + GUID_directory[i].Name + "/" + Into_GUID[k].Name + "/" + a.Name);
                                                         if (info.Length == a.Size)
                                                         {
                                                             ftp.DeleteFile(a.Name);                // удаляем файл
-                                                            Console.WriteLine("Фото удалено с сервера");
+                                                            //Console.WriteLine("Фото удалено с сервера");
                                                         }
                                                         else
                                                         {
@@ -253,6 +240,7 @@ namespace FTP_Attestation_CopyFiles
                                                 FTPFile[] files_last = ftp.GetFileInfos();
                                                 if (files_last.Length == 0)
                                                 {
+                                                    Console.WriteLine($" {lngth} фотографий успешно скопировано");
                                                     ftp.ChangeWorkingDirectoryUp();                // вернуться из папки
                                                     try
                                                     {
