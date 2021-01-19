@@ -71,7 +71,7 @@ namespace FTP_Attestation_CopyFiles
                 }
                 catch (Exception ss)
                 {
-                    log(ss.ToString()+" Чтение из базы");
+                    log(ss.ToString()+" Чтение из базы" + DateTime.Now.ToString());
                 }
             }
         }
@@ -141,7 +141,7 @@ namespace FTP_Attestation_CopyFiles
             }
             catch (Exception a)
             {
-                log(a.ToString()+" Чтение конфига");
+                log(DateTime.Now.ToString() +" Чтение конфига" + a.ToString() );
             }
 
             // Получение списка директорий на сервере ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -162,11 +162,6 @@ namespace FTP_Attestation_CopyFiles
                     }
                 }
             }
-            /* Console.WriteLine("После сортировки");
-             foreach (FTPFile a in GUID_directory)
-             {
-                 Console.WriteLine(a.Name + " - " + a.LastModified);
-             }*/
 
             firstDate = GUID_directory[0].LastModified;
             lastDate = firstDate.AddHours(5);
@@ -179,9 +174,9 @@ namespace FTP_Attestation_CopyFiles
                 {
                     InsertRow(connectionString, lastDate); // получаем список партий из базы
                 }
-                catch (Exception s)
+                catch (Exception aa)
                 {
-                    log(s.ToString()+ " Получение списка партий из базы");
+                    log(DateTime.Now.ToString() + " Получение списка партий из базы " + aa.ToString());
                 }
                 for (int i = 0; i < GUID_directory.Length; i++)
                 {
@@ -189,7 +184,7 @@ namespace FTP_Attestation_CopyFiles
                     {
                         try
                         {
-                            if (pr == GUID_directory[i].Name)   // если совпадает номер на сервере и в базе (значить партия закрыта)
+                            if (pr.Equals(GUID_directory[i].Name, StringComparison.OrdinalIgnoreCase) )  // если совпадает номер на сервере и в базе (значить партия закрыта)
                             {
                                 // создаем папку на вычислителе с именем партии
                                 DirectoryInfo dirInfo = new DirectoryInfo(dir_Name + "/" + GUID_directory[i].Name);
@@ -198,16 +193,32 @@ namespace FTP_Attestation_CopyFiles
                                     dirInfo.Create();
                                     Console.WriteLine($"Создали папки партии {GUID_directory[i].Name} на жестком диске");
                                 }
-                                ftp.ChangeWorkingDirectory(GUID_directory[i].Name);     // сменить рабочую директорию, войти в папку партии
-                                FTPFile[] Into_GUID = ftp.GetFileInfos();               // файлы в папке партии
-                                if (Into_GUID.Length > 0)
+                                try
                                 {
-                                    for (int k = 0; k < Into_GUID.Length; k++)
+                                    ftp.ChangeWorkingDirectory("/"+GUID_directory[i].Name);     // сменить рабочую директорию, войти в папку партии
+                                }
+                                catch (Exception aa)
+                                {
+                                    Console.WriteLine("ftp_set_work_dir="+GUID_directory[i].Name +" : "+aa.ToString());
+                                    log(DateTime.Now.ToString() + "  " + aa.ToString());
+                                }
+                                FTPFile[] vag_Number = ftp.GetFileInfos();               // файлы в папке партии
+                                if (vag_Number.Length > 0)
+                                {
+                                    for (int k = 0; k < vag_Number.Length; k++)
                                     {
-                                        if (Into_GUID[k].Dir)  // true если это директория
+                                        if (vag_Number[k].Dir)  // true если это директория
                                         {
-                                            dirInfo.CreateSubdirectory(Into_GUID[k].Name);             // создаем папку на вычислителе с номером вагона
-                                            ftp.ChangeWorkingDirectory(Into_GUID[k].Name);             // сменить рабочую директорию, войти в папку вагона
+                                            dirInfo.CreateSubdirectory(vag_Number[k].Name);             // создаем папку на вычислителе с номером вагона
+                                            try
+                                            {
+                                                ftp.ChangeWorkingDirectory("/" + GUID_directory[i].Name+"/"+vag_Number[k].Name);             // сменить рабочую директорию, войти в папку вагона
+                                            }
+                                            catch (Exception aa)
+                                            {
+                                                Console.WriteLine(aa.ToString());
+                                                log(DateTime.Now.ToString() + "  " + aa.ToString());
+                                            }
                                             FTPFile[] files = ftp.GetFileInfos();                      // файлы в папке вагона
                                             if (files.Length > 0)
                                             {
@@ -217,10 +228,10 @@ namespace FTP_Attestation_CopyFiles
                                                     try
                                                     {
                                                         // копирование файла с сервера на компьютер
-                                                        ftp.DownloadFile(dir_Name + "/" + GUID_directory[i].Name + "/" + Into_GUID[k].Name + "/" + a.Name, a.Name);
+                                                        ftp.DownloadFile(dir_Name + "/" + GUID_directory[i].Name + "/" + vag_Number[k].Name + "/" + a.Name, a.Name);
                                                         //Console.WriteLine($"Файл с фото {a.Name} скопирован");
                                                         // сравниваем размер скаченного файла на диске и сервере
-                                                        FileInfo info = new FileInfo(dir_Name + "/" + GUID_directory[i].Name + "/" + Into_GUID[k].Name + "/" + a.Name);
+                                                        FileInfo info = new FileInfo(dir_Name + "/" + GUID_directory[i].Name + "/" + vag_Number[k].Name + "/" + a.Name);
                                                         if (info.Length == a.Size)
                                                         {
                                                             ftp.DeleteFile(a.Name);                // удаляем файл
@@ -233,86 +244,87 @@ namespace FTP_Attestation_CopyFiles
                                                     }
                                                     catch (Exception kk)
                                                     {
-                                                        log(kk.ToString()+" Копирование фотографий");
+                                                        log(DateTime.Now.ToString()+"  Копирование фотографий" + kk.ToString() );
                                                     }
-                                                }
-                                                // получаем еще раз список файлов
-                                                FTPFile[] files_last = ftp.GetFileInfos();
-                                                if (files_last.Length == 0)
-                                                {
-                                                    Console.WriteLine($" {lngth} фотографий успешно скопировано");
-                                                    ftp.ChangeWorkingDirectoryUp();                // вернуться из папки
-                                                    try
-                                                    {
-                                                        ftp.DeleteDirectory(Into_GUID[k].Name);        // удалить папку вагона
-                                                        Console.WriteLine("Удалена папка с номером вагона");
-                                                    }
-                                                    catch (Exception jj)
-                                                    {
-                                                        Console.WriteLine("Не удалось удалить папку с номером вагона");
-                                                        log(jj.ToString()+" Удаление папки с номером вагона");
-                                                    }
-                                                }
-                                                else
-                                                {
-                                                    Console.WriteLine("Не удалось удалить папку с номером вагона");
-                                                    ftp.ChangeWorkingDirectoryUp();                // вернуться из папки
                                                 }
                                             }
+                                            ftp.ChangeWorkingDirectory("/" + GUID_directory[i].Name);     // сменить рабочую директорию, войти в папку партии
+                                            //ftp.ChangeWorkingDirectoryUp();                // вернуться из папки
+                                            try
+                                            {
+                                                ftp.DeleteDirectory(vag_Number[k].Name);        // удалить папку вагона
+                                                Console.WriteLine("Удалена папка с номером вагона");
+                                            }
+                                            catch (Exception jj)
+                                            {
+                                                Console.WriteLine("Не удалось удалить папку с номером вагона");
+                                                log(DateTime.Now.ToString() +"  Удаление папки с номером вагона" + jj.ToString() );
+                                            }
+                                            //ftp.ChangeWorkingDirectory("/");     // сменить рабочую директорию, войти в папку партии
                                         }
                                         else
                                         {
                                             try
                                             {
                                                 // копируем файл с видео
-                                                ftp.DownloadFile(dir_Name + "/" + GUID_directory[i].Name + "/" + Into_GUID[k].Name, Into_GUID[k].Name);
-                                                Console.WriteLine($"Файл с видео {Into_GUID[k].Name} скопирован");
-                                                FileInfo info = new FileInfo(dir_Name + "/" + GUID_directory[i].Name + "/" + Into_GUID[k].Name);
+                                                ftp.DownloadFile(dir_Name + "/" + GUID_directory[i].Name + "/" + vag_Number[k].Name, vag_Number[k].Name);
+                                                Console.WriteLine($"Файл с видео {vag_Number[k].Name} скопирован");
+                                                FileInfo info = new FileInfo(dir_Name + "/" + GUID_directory[i].Name + "/" + vag_Number[k].Name);
                                                 // сравниваем размер
-                                                if (info.Length == Into_GUID[k].Size)
+                                                if (info.Length == vag_Number[k].Size)
                                                 {
-                                                    ftp.DeleteFile(Into_GUID[k].Name);        // удаляем файл
-                                                    Console.WriteLine($"Удалили файл видео {Into_GUID[k].Name} с сервера");
+                                                    ftp.DeleteFile(vag_Number[k].Name);        // удаляем файл
+                                                    Console.WriteLine($"Удалили файл видео {vag_Number[k].Name} с сервера");
                                                 }
                                                 else
                                                 {
-                                                    Console.WriteLine($"Не удалось удалить файл видео {Into_GUID[k].Name} с сервера");
+                                                    Console.WriteLine($"Не удалось удалить файл видео {vag_Number[k].Name} с сервера");
                                                 }
                                             }
                                             catch (Exception jj)
                                             {
                                                 Console.WriteLine("Ошибка копирования видео");
-                                                log(jj.ToString()+" Копирование видео");
+                                                log(DateTime.Now.ToString() +" Копирование видео" + jj.ToString() );
                                             }
                                         }
                                     }
-                                    FTPFile[] Into_GUID_last = ftp.GetFileInfos();            // файлы в папке партии еще раз
-                                    if (Into_GUID_last.Length == 0)
+                                    ftp.ChangeWorkingDirectory("/");     // сменить рабочую директорию, войти в папку партии
+                                    //ftp.ChangeWorkingDirectoryUp();                       // вернуться из папки партии
+                                    try
                                     {
-                                        ftp.ChangeWorkingDirectoryUp();                       // вернуться из папки партии
-                                        try
-                                        {
-                                            ftp.DeleteDirectory(GUID_directory[i].Name);      // удалить папку партии
-                                            Console.WriteLine("Папка партии удалена с сервера");
-                                        }
-                                        catch (Exception jj)
-                                        {
-                                            Console.WriteLine("Ошибка удаления папки партии с сервера");
-                                            log(jj.ToString());
-                                        }
+                                        ftp.DeleteDirectory(GUID_directory[i].Name);      // удалить папку партии
+                                        Console.WriteLine("Папка партии удалена с сервера");
                                     }
-                                    //Console.WriteLine("Директория удалена");
+                                    catch (Exception jj)
+                                    {
+                                        Console.WriteLine("Ошибка удаления папки партии с сервера");
+                                        log(DateTime.Now.ToString() + "  " +jj.ToString() );
+                                    }
                                 }
-                                Console.WriteLine("Все доступные партии проработаны");
+                                else
+                                {
+                                    ftp.ChangeWorkingDirectory("/");     // сменить рабочую директорию, войти в папку партии
+                                    try
+                                    {
+                                        ftp.DeleteDirectory(GUID_directory[i].Name);      // удалить папку партии
+                                        Console.WriteLine("Папка партии удалена с сервера");
+                                    }
+                                    catch (Exception jj)
+                                    {
+                                        Console.WriteLine("Ошибка удаления папки партии с сервера");
+                                        log(DateTime.Now.ToString() + "  " + jj.ToString());
+                                    }
+                                }
                             }
                         }
                         catch (Exception dd)
                         {
                             Console.WriteLine("Ошибка в процессе копирования и удаления");
-                            log(dd.ToString() + " Ошибка в процессе копирования и удаления");
+                            log(DateTime.Now.ToString() + "  Ошибка в процессе копирования и удаления" + dd.ToString());
                         }
                     }
                 }
+                Console.WriteLine("Все доступные партии проработаны");
                 //Console.WriteLine("Старые директории удалены");
             }
             try
@@ -323,10 +335,10 @@ namespace FTP_Attestation_CopyFiles
             catch (Exception ff)
             {
                 Console.WriteLine("Ошибка закрытия соединения FTP");
-                log(ff.ToString()+ " Ошибка закрытия соединения FTP");
+                log(DateTime.Now.ToString() + " Ошибка закрытия соединения FTP" + ff.ToString() );
             }
             //Console.Read();
-            Thread.Sleep(20000);
+            Thread.Sleep(200000);
         }
     }
 }
