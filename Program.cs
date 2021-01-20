@@ -338,7 +338,7 @@ namespace FTP_Attestation_CopyFiles
                 log(DateTime.Now.ToString() + " Ошибка закрытия соединения FTP" + ff.ToString() );
             }
             //Console.Read();
-            Thread.Sleep(200000);
+            Thread.Sleep(1000);
         }
     }
 }
