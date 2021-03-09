@@ -37,8 +37,8 @@ namespace FTP_Attestation_CopyFiles
         public static void InsertRow(string connectionString, DateTime dateTime) // соединение с базой данных по ODBC
         {
             string dat = (dateTime.ToUniversalTime().ToString("u")).Replace("Z", "");
-            //string query = $"select part_id from incube.dbo.tb_part where end_time>'{dat}'";                   // реальный код 
-            string query = $"select part_id from incube.dbo.tb_part where end_time>'2020-10-15 12:00:00.000'";   // тестовый код
+            string query = $"select part_id from incube.dbo.tb_part where end_time>'{dat}'";                   // реальный код 
+            //string query = $"select part_id from incube.dbo.tb_part where end_time>'2020-10-15 12:00:00.000'";   // тестовый код
             using (OdbcConnection connection = new OdbcConnection(connectionString))
             {
                 OdbcCommand command = new OdbcCommand(query, connection);
